@@ -1,95 +1,34 @@
-using System;
-using System.Globalization;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using env_analysis_project.Data;
+using env_analysis_project.Services;
 
 namespace env_analysis_project.Controllers
 {
     public class SourceManagementController : Controller
     {
-        private readonly env_analysis_projectContext _context;
+        private readonly ISourceManagementService _sourceManagementService;
 
-        public SourceManagementController(env_analysis_projectContext context)
+        public SourceManagementController(ISourceManagementService sourceManagementService)
         {
-            _context = context;
+            _sourceManagementService = sourceManagementService;
         }
 
-        public IActionResult Index()
-        {
-            return View();
-        }
+        [HttpGet]
+        public IActionResult Index() => RedirectToAction(nameof(Manage));
 
         // Serve Manage view with emission sources model and source types (used by the sidebar)
+        [HttpGet]
         public async Task<IActionResult> Manage()
         {
-            var sources = await _context.EmissionSource
-                .Include(e => e.SourceType)
-                .OrderBy(e => e.IsDeleted)
-                .ThenBy(e => e.SourceName)
-                .ToListAsync();
-
-            var sourceTypes = await _context.SourceType
-                .Where(st => !st.IsDeleted)
-                .Select(st => new
-                {
-                    st.SourceTypeID,
-                    st.SourceTypeName,
-                    st.Description,
-                    st.IsActive,
-                    st.CreatedAt,
-                    st.UpdatedAt,
-                    Count = _context.EmissionSource.Count(es => es.SourceTypeID == st.SourceTypeID && !es.IsDeleted)
-                })
-                .ToListAsync();
-
-            ViewBag.SourceTypes = sourceTypes;
-            return View("Manage", sources);
+            var data = await _sourceManagementService.GetManageDataAsync();
+            ViewBag.SourceTypes = data.SourceTypes;
+            return View("Manage", data.Sources);
         }
         [HttpGet]
         public async Task<IActionResult> ExportCsv()
         {
-            var sources = await _context.EmissionSource
-                .Where(e => !e.IsDeleted)
-                .Include(e => e.SourceType)
-                .OrderBy(e => e.SourceName)
-                .ToListAsync();
-
-            var builder = new StringBuilder();
-            builder.AppendLine("Source Name,Source Code,Location,Latitude,Longitude,Source Type,Status");
-            foreach (var source in sources)
-            {
-                var fields = new[]
-                {
-                    EscapeCsv(source.SourceName),
-                    EscapeCsv(source.SourceCode),
-                    EscapeCsv(source.Location),
-                    EscapeCsv(source.Latitude?.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                    EscapeCsv(source.Longitude?.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                    EscapeCsv(source.SourceType?.SourceTypeName),
-                    EscapeCsv(source.IsActive ? "Active" : "Inactive")
-                };
-                builder.AppendLine(string.Join(",", fields));
-            }
-
-            var bytes = Encoding.UTF8.GetBytes(builder.ToString());
-            var fileName = $"emission-sources-{DateTime.UtcNow:yyyyMMddHHmmss}.csv";
-            return File(bytes, "text/csv", fileName);
+            var exportResult = await _sourceManagementService.ExportCsvAsync();
+            return File(exportResult.Bytes, exportResult.ContentType, exportResult.FileName);
         }
-
-        private static string EscapeCsv(string? value)
-        {
-            if (string.IsNullOrEmpty(value))
-            {
-                return "\"\"";
-            }
-
-            var sanitized = value.Replace("\"", "\"\"");
-            return $"\"{sanitized}\"";
-        }
-
     }
 }

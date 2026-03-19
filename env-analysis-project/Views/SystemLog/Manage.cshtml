@@ -1,5 +1,5 @@
-@using env_analysis_project.Controllers
-@model SystemLogController.SystemLogViewModel
+@using env_analysis_project.Contracts.SystemLogs
+@model SystemLogViewModel
 @{
     ViewData["Title"] = "System Log";
 
@@ -11,7 +11,7 @@
     }) ?? "#";
 }
 
-<div class="max-w-full mx-auto p-4 space-y-6 w-full h-full">
+<div class="max-w-full mx-auto p-4 space-y-4 w-full h-full">
     <section class="w-full bg-white border border-gray-200 rounded p-4 space-y-4 text-xs">
 
         <!-- Header -->

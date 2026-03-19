@@ -1,18 +1,15 @@
 using env_analysis_project.Data;
+using env_analysis_project.Extensions;
 using env_analysis_project.Models;
 using env_analysis_project.Options;
 using env_analysis_project.Security;
 using env_analysis_project.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Authorization.Policy;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,7 +19,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<ThresholdOptions>(builder.Configuration.GetSection("PollutionThresholds"));
 builder.Services.Configure<ThresholdOptions>(builder.Configuration.GetSection("ThresholdOptions"));
 builder.Services.AddScoped<IPredictionService, PredictionService>();
-builder.Services.AddSingleton<IPredictionService, PredictionService>();
 
 // ======================================
 // Đăng ký DbContext
@@ -36,6 +32,15 @@ builder.Services.AddDbContext<env_analysis_projectContext>(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUserActivityLogger, UserActivityLogger>();
 builder.Services.AddScoped<IMeasurementImportService, MeasurementImportService>();
+builder.Services.AddScoped<IMeasurementResultsService, MeasurementResultsService>();
+builder.Services.AddScoped<IDashboardLookupService, DashboardLookupService>();
+builder.Services.AddScoped<ISourceManagementService, SourceManagementService>();
+builder.Services.AddScoped<IPollutionWorkflowService, PollutionWorkflowService>();
+builder.Services.AddScoped<ISystemLogService, SystemLogService>();
+builder.Services.AddScoped<IEmissionSourcesService, EmissionSourcesService>();
+builder.Services.AddScoped<ISourceTypesService, SourceTypesService>();
+builder.Services.AddScoped<IParametersService, ParametersService>();
+builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 
 // ======================================
 // Cấu hình Identity
@@ -55,72 +60,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 // ======================================
 // Cấu hình JWT
 // ======================================
-builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
-var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>()
-    ?? throw new InvalidOperationException("Jwt configuration is missing.");
-
-if (string.IsNullOrWhiteSpace(jwtOptions.Key))
-{
-    throw new InvalidOperationException("Jwt:Key is required.");
-}
-
-var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key));
-
-builder.Services
-    .AddAuthorization()
-    .AddAuthentication(options =>
-    {
-        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    })
-    .AddJwtBearer(options =>
-    {
-        options.RequireHttpsMetadata = true;
-        options.SaveToken = true;
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = signingKey,
-            ValidateIssuer = true,
-            ValidIssuer = jwtOptions.Issuer,
-            ValidateAudience = true,
-            ValidAudience = jwtOptions.Audience,
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromSeconds(30)
-        };
-
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
-            {
-                if (context.Request.Cookies.TryGetValue(JwtDefaults.AccessTokenCookieName, out var token))
-                {
-                    context.Token = token;
-                }
-                return Task.CompletedTask;
-            },
-            OnChallenge = context =>
-            {
-                context.HandleResponse();
-
-                var isAjax = string.Equals(
-                    context.Request.Headers["X-Requested-With"],
-                    "XMLHttpRequest",
-                    StringComparison.OrdinalIgnoreCase);
-
-                if (isAjax)
-                {
-                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                    return context.Response.WriteAsync("Unauthorized");
-                }
-
-                context.Response.Redirect("/Identity/Account/Login");
-                return Task.CompletedTask;
-            }
-        };
-    });
-
-builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, FriendlyAuthorizationMiddlewareResultHandler>();
+builder.Services.AddJwtAuthenticationConfiguration(builder.Configuration);
 
 // ======================================
 // Thêm MVC Controller + View
@@ -168,11 +108,6 @@ app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}"
-);
-
-app.MapControllerRoute(
-    name: "account-management",
-    pattern: "{controller=UserManagementController}/{action=Index}"
 );
 
 app.MapRazorPages();

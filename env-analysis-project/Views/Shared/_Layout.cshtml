@@ -84,12 +84,12 @@
         <nav class="max-w-full mx-auto flex items-center p-4 ">
 
             <!-- Logo / Title -->
-            <a class="text-md font-bold text-blue-800" asp-area="" asp-controller="Home" asp-action="Index">
+            <a class="text-xs font-bold text-blue-800" asp-area="" asp-controller="Home" asp-action="Index">
                 ENVIRONMENT ANALYSIS
             </a>
 
             <!-- Menu giữa -->
-            <ul class="flex space-x-8 text-sm font-medium text-gray-700 ml-12 cursor-pointer">
+            <ul class="flex space-x-8 text-xs font-medium text-gray-700 ml-12 cursor-pointer">
                 <li>
                     <a class="hover:text-black transition" asp-controller="Home" asp-action="Index">
                         Dashboard
@@ -100,21 +100,21 @@
                             @@click.away="open = false"
                             class="hover:text-black transition flex items-center space-x-1">
                         <span>Data Center</span>
-                        <i class="bi bi-caret-down-fill text-[10px]"></i>
+                        <i class="bi bi-caret-down-fill text-[8px]"></i>
                     </button>
 
                     <!-- Dropdown menu -->
                     <div x-show="open" x-transition x-cloak class="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg py-1 z-50">
                         <a asp-controller="SourceManagement" asp-action="Manage"
-                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-black">
+                           class="block px-4 py-2 text-xs text-gray-700 hover:bg-gray-100 hover:text-black">
                             Source Management
                         </a>
                         <a asp-controller="MeasurementResults" asp-action="Manage"
-                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-black">
+                           class="block px-4 py-2 text-xs text-gray-700 hover:bg-gray-100 hover:text-black">
                             Measurement Data
                         </a>
                         <a asp-controller="Parameters" asp-action="Manage"
-                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-black">
+                           class="block px-4 py-2 text-xs text-gray-700 hover:bg-gray-100 hover:text-black">
                             Parameters
                         </a>
                     </div>
@@ -137,14 +137,14 @@
             <!-- Icon user bên phải -->
             @if (isUserAuthenticated)
             {
-                <div class="ml-auto relative text-sm text-gray-700" x-data="{ userMenuOpen: false }" x-cloak>
+                <div class="ml-auto relative text-xs text-gray-700" x-data="{ userMenuOpen: false }" x-cloak>
                     <button type="button"
                             class="flex items-center gap-2 px-3 py-1.5 transition"
                             @@click="userMenuOpen = !userMenuOpen"
                             @@click.away="userMenuOpen = false"
                             @@keydown.escape.prevent.stop="userMenuOpen = false">
                         <span class="font-semibold text-gray-800">@currentUserName</span>
-                        <i class="bi" :class="userMenuOpen ? 'bi-caret-up-fill text-[10px] mt-[2px]' : 'bi-caret-down-fill text-[10px] mt-[2px]'"></i>
+                        <i class="bi" :class="userMenuOpen ? 'bi-caret-up-fill text-[9px] mt-[2px]' : 'bi-caret-down-fill text-[10px] mt-[2px]'"></i>
                     </button>
                     <div x-show="userMenuOpen"
                          x-transition

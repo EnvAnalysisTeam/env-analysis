@@ -1,52 +1,40 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using env_analysis_project.Models;
 using env_analysis_project.Services;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 
 namespace env_analysis_project.Controllers
 {
     public class PollutionController : Controller
     {
-        private readonly IPredictionService _service;
+        private readonly IPollutionWorkflowService _pollutionWorkflowService;
 
-        public PollutionController(IPredictionService service) => _service = service;
+        public PollutionController(IPollutionWorkflowService pollutionWorkflowService)
+        {
+            _pollutionWorkflowService = pollutionWorkflowService;
+        }
 
         [HttpGet]
-        public IActionResult Index() => View();
+        public IActionResult Index() => RedirectToAction("Index", "Home");
 
         [HttpPost]
-        public IActionResult UploadCsv(IFormFile csvFile)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UploadCsv(IFormFile? csvFile)
         {
             if (csvFile == null || csvFile.Length == 0)
             {
-                ModelState.AddModelError("csvFile", "Vui lòng chọn một file CSV.");
-                return View("Index");
+                return BadRequest(ApiResponse.Fail<object?>("Vui long chon mot file CSV."));
             }
 
-    
-            var tempPath = Path.GetTempFileName();
-            try
+            var result = await _pollutionWorkflowService.ProcessCsvAsync(csvFile.OpenReadStream());
+            if (!result.Success || result.Data == null)
             {
-                  
-                using (var stream = new FileStream(tempPath, FileMode.Create))
-                {
-                    csvFile.CopyTo(stream);
-                }
+                return BadRequest(ApiResponse.Fail<object?>(
+                    result.Message ?? "Loi xu ly file hoac du doan.",
+                    result.Errors));
+            }
 
-            
-                var result = _service.UploadAndPredict(tempPath);
-
-                    
-                return View("Result", result);
-            }
-            catch (Exception ex)
-            {
-            
-                ModelState.AddModelError("", $"Lỗi xử lý file hoặc dự đoán: {ex.Message}");
-                return View("Index");
-            }
-            finally
-            {
-                System.IO.File.Delete(tempPath);
-            }
+            return Ok(ApiResponse.Success(result.Data, result.Message));
         }
     }
 }

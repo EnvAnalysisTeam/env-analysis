@@ -2,221 +2,107 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using env_analysis_project.Data;
+using env_analysis_project.Contracts.SourceTypes;
 using env_analysis_project.Models;
-using env_analysis_project.Validators;
 using env_analysis_project.Services;
+using Microsoft.AspNetCore.Mvc;
 
 namespace env_analysis_project.Controllers
 {
     public class SourceTypesController : Controller
     {
-        private readonly env_analysis_projectContext _context;
-        private readonly IUserActivityLogger _activityLogger;
+        private readonly ISourceTypesService _sourceTypesService;
 
-        public SourceTypesController(env_analysis_projectContext context, IUserActivityLogger activityLogger)
+        public SourceTypesController(ISourceTypesService sourceTypesService)
         {
-            _context = context;
-            _activityLogger = activityLogger;
+            _sourceTypesService = sourceTypesService;
         }
 
-        // ========== Views ==========
-        public async Task<IActionResult> Index()
-        {
-            var sourceTypes = await ActiveSourceTypes()
-                .Select(st => new SourceTypeDto
-                {
-                    SourceTypeID = st.SourceTypeID,
-                    SourceTypeName = st.SourceTypeName,
-                    Description = st.Description,
-                    IsActive = st.IsActive,
-                    CreatedAt = st.CreatedAt,
-                    UpdatedAt = st.UpdatedAt,
-                    EmissionSourceCount = _context.EmissionSource.Count(es => es.SourceTypeID == st.SourceTypeID && !es.IsDeleted)
-                })
-                .ToListAsync();
+        [HttpGet]
+        public IActionResult Index() => RedirectToAction("Manage", "SourceManagement");
 
-            ViewBag.SourceTypes = sourceTypes;
-            return View(sourceTypes);
-        }
-
-        public IActionResult Create() => View();
-
-        public async Task<IActionResult> Details(int? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var sourceType = await ActiveSourceTypes().FirstOrDefaultAsync(m => m.SourceTypeID == id);
-            if (sourceType == null)
-            {
-                return NotFound();
-            }
-
-            return View(sourceType);
-        }
-
-        public async Task<IActionResult> Delete(int? id)
-        {
-            if (id == null) return NotFound();
-
-            var sourceType = await ActiveSourceTypes().FirstOrDefaultAsync(m => m.SourceTypeID == id);
-            if (sourceType == null) return NotFound();
-
-            return View(sourceType);
-        }
-
-        // ========== JSON APIs ==========
         [HttpGet]
         public async Task<IActionResult> GetList()
         {
-            var sourceTypes = await ActiveSourceTypes()
-                .Select(st => new SourceTypeDto
-                {
-                    SourceTypeID = st.SourceTypeID,
-                    SourceTypeName = st.SourceTypeName,
-                    Description = st.Description,
-                    IsActive = st.IsActive,
-                    CreatedAt = st.CreatedAt,
-                    UpdatedAt = st.UpdatedAt,
-                    EmissionSourceCount = _context.EmissionSource.Count(es => es.SourceTypeID == st.SourceTypeID && !es.IsDeleted)
-                })
-                .ToListAsync();
-
+            var sourceTypes = await _sourceTypesService.GetActiveListAsync();
             return Ok(ApiResponse.Success(sourceTypes));
         }
 
         [HttpGet]
         public async Task<IActionResult> Get(int id)
         {
-            var dto = await ActiveSourceTypes()
-                .Where(s => s.SourceTypeID == id)
-                .Select(s => new SourceTypeDto
-                {
-                    SourceTypeID = s.SourceTypeID,
-                    SourceTypeName = s.SourceTypeName,
-                    Description = s.Description,
-                    IsActive = s.IsActive,
-                    CreatedAt = s.CreatedAt,
-                    UpdatedAt = s.UpdatedAt,
-                    EmissionSourceCount = _context.EmissionSource.Count(es => es.SourceTypeID == s.SourceTypeID && !es.IsDeleted)
-                })
-                .FirstOrDefaultAsync();
-
-            if (dto == null)
+            var result = await _sourceTypesService.GetByIdAsync(id);
+            if (!result.Success || result.Data == null)
             {
-                return NotFound(ApiResponse.Fail<SourceTypeDto>("Source type not found."));
+                return NotFound(ApiResponse.Fail<SourceTypeDto>(result.Message ?? "Source type not found.", result.Errors));
             }
 
-            return Ok(ApiResponse.Success(dto));
+            return Ok(ApiResponse.Success(result.Data));
         }
 
-        // ========== Mutations ==========
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(SourceType sourceType)
         {
-            var validationErrors = SourceTypeValidator.Validate(sourceType).ToList();
-            if (!ModelState.IsValid)
-            {
-                validationErrors.AddRange(GetModelErrors());
-            }
+            var result = await _sourceTypesService.CreateAsync(
+                sourceType,
+                !ModelState.IsValid ? GetModelErrors() : Array.Empty<string>());
 
-            if (validationErrors.Count > 0)
+            if (!result.Success || result.Data == null)
             {
                 if (IsAjaxRequest())
                 {
-                    return BadRequest(ApiResponse.Fail<SourceTypeDto>("Validation failed.", validationErrors));
+                    return BadRequest(ApiResponse.Fail<SourceTypeDto>(result.Message ?? "Validation failed.", result.Errors));
                 }
 
-                foreach (var error in validationErrors)
-                {
-                    ModelState.AddModelError(string.Empty, error);
-                }
-
-                return View(sourceType);
+                TempData["Error"] = string.Join(Environment.NewLine, result.Errors ?? Array.Empty<string>());
+                return RedirectToAction("Manage", "SourceManagement");
             }
-
-            sourceType.CreatedAt = DateTime.Now;
-            sourceType.UpdatedAt = DateTime.Now;
-
-            _context.SourceType.Add(sourceType);
-            await _context.SaveChangesAsync();
-            await LogAsync("SourceType.Create", sourceType.SourceTypeID.ToString(), $"Created source type {sourceType.SourceTypeName}");
 
             if (IsAjaxRequest())
             {
-                return Ok(ApiResponse.Success(ToDto(sourceType), "Source type created successfully."));
+                return Ok(ApiResponse.Success(result.Data, result.Message));
             }
 
             TempData["Success"] = "Source type created successfully!";
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction("Manage", "SourceManagement");
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("SourceTypeID,SourceTypeName,Description,IsActive,CreatedAt,UpdatedAt")] SourceType model)
         {
-            if (id != model.SourceTypeID)
+            var result = await _sourceTypesService.EditAsync(
+                id,
+                model,
+                !ModelState.IsValid ? GetModelErrors() : Array.Empty<string>());
+
+            if (!result.Success)
             {
-                return BadRequest(ApiResponse.Fail<SourceTypeDto>("Invalid source type identifier."));
+                if (string.Equals(result.Message, "Source type not found.", StringComparison.OrdinalIgnoreCase))
+                {
+                    return NotFound(ApiResponse.Fail<SourceTypeDto>(result.Message, result.Errors));
+                }
+                return BadRequest(ApiResponse.Fail<SourceTypeDto>(result.Message ?? "Validation failed.", result.Errors));
             }
 
-            var validationErrors = SourceTypeValidator.Validate(model).ToList();
-            if (!ModelState.IsValid)
-            {
-                validationErrors.AddRange(GetModelErrors());
-            }
-
-            if (validationErrors.Count > 0)
-            {
-                return BadRequest(ApiResponse.Fail<SourceTypeDto>("Validation failed.", validationErrors));
-            }
-
-            var existing = await _context.SourceType.FindAsync(id);
-            if (existing == null || existing.IsDeleted)
-            {
-                return NotFound(ApiResponse.Fail<SourceTypeDto>("Source type not found."));
-            }
-
-            existing.SourceTypeName = model.SourceTypeName?.Trim();
-            existing.Description = model.Description?.Trim();
-            existing.IsActive = model.IsActive;
-            existing.UpdatedAt = DateTime.Now;
-
-            _context.Update(existing);
-            await _context.SaveChangesAsync();
-            await LogAsync("SourceType.Update", existing.SourceTypeID.ToString(), $"Updated source type {existing.SourceTypeName}");
-
-            return Ok(ApiResponse.Success(ToDto(existing), "Source type updated successfully."));
+            return Ok(ApiResponse.Success(result.Data, result.Message));
         }
 
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var sourceType = await _context.SourceType.FindAsync(id);
-            if (sourceType != null && !sourceType.IsDeleted)
-            {
-                sourceType.IsDeleted = true;
-                sourceType.UpdatedAt = DateTime.Now;
-                await _context.SaveChangesAsync();
-                await LogAsync("SourceType.Delete", sourceType.SourceTypeID.ToString(), $"Deleted source type {sourceType.SourceTypeName}");
-            }
+            var result = await _sourceTypesService.DeleteAsync(id);
 
             if (IsAjaxRequest())
             {
-                return Ok(ApiResponse.Success<object?>(null, "Source type deleted successfully."));
+                return Ok(ApiResponse.Success<object?>(null, result.Message ?? "Source type deleted successfully."));
             }
 
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction("Manage", "SourceManagement");
         }
 
-        // ========== Helpers ==========
         private bool IsAjaxRequest() =>
             string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
 
@@ -230,39 +116,5 @@ namespace env_analysis_project.Controllers
                         : error.ErrorMessage))
                 .ToArray();
         }
-
-        private static SourceTypeDto ToDto(SourceType sourceType, int? emissionSourceCount = null)
-        {
-            return new SourceTypeDto
-            {
-                SourceTypeID = sourceType.SourceTypeID,
-                SourceTypeName = sourceType.SourceTypeName,
-                Description = sourceType.Description,
-                IsActive = sourceType.IsActive,
-                CreatedAt = sourceType.CreatedAt,
-                UpdatedAt = sourceType.UpdatedAt,
-                EmissionSourceCount = emissionSourceCount
-            };
-        }
-
-        private IQueryable<SourceType> ActiveSourceTypes() =>
-            _context.SourceType.Where(st => !st.IsDeleted);
-
-        private bool SourceTypeExists(int id) =>
-            ActiveSourceTypes().Any(e => e.SourceTypeID == id);
-
-        public sealed class SourceTypeDto
-        {
-            public int SourceTypeID { get; set; }
-            public string SourceTypeName { get; set; } = string.Empty;
-            public string? Description { get; set; }
-            public bool IsActive { get; set; }
-            public DateTime? CreatedAt { get; set; }
-            public DateTime? UpdatedAt { get; set; }
-            public int? EmissionSourceCount { get; set; }
-        }
-
-        private Task LogAsync(string action, string entityId, string description) =>
-            _activityLogger.LogAsync(action, "SourceType", entityId, description);
     }
 }

@@ -1,52 +1,26 @@
 using System.Diagnostics;
-using System.Linq;
 using System.Threading.Tasks;
-using env_analysis_project.Data;
 using env_analysis_project.Models;
+using env_analysis_project.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace env_analysis_project.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly ILogger<HomeController> _logger;
-        private readonly env_analysis_projectContext _context;
+        private readonly IDashboardLookupService _dashboardLookupService;
 
-        public HomeController(ILogger<HomeController> logger, env_analysis_projectContext context)
+        public HomeController(IDashboardLookupService dashboardLookupService)
         {
-            _logger = logger;
-            _context = context;
+            _dashboardLookupService = dashboardLookupService;
         }
 
         public async Task<IActionResult> Index()
         {
-            var emissionSources = await _context.EmissionSource
-                .Where(s => !s.IsDeleted)
-                .OrderBy(s => s.SourceName)
-                .Select(s => new
-                {
-                    Id = s.EmissionSourceID,
-                    Label = s.SourceName
-                })
-                .ToListAsync();
-
-            var parameters = await _context.Parameter
-                .Where(p => !p.IsDeleted)
-                .OrderBy(p => p.ParameterName)
-                .Select(p => new
-                {
-                    Code = p.ParameterCode,
-                    Label = p.ParameterName,
-                    Unit = p.Unit,
-                    StandardValue = p.StandardValue,
-                    Type = ParameterTypeHelper.Normalize(p.Type)
-                })
-                .ToListAsync();
-
-            ViewBag.EmissionSources = emissionSources;
-            ViewBag.Parameters = parameters;
+            var lookupData = await _dashboardLookupService.GetLookupDataAsync();
+            ViewBag.EmissionSources = lookupData.EmissionSources;
+            ViewBag.Parameters = lookupData.Parameters;
 
             return View();
         }

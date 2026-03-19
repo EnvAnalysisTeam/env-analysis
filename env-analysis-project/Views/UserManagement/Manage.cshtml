@@ -10,7 +10,7 @@
         ? (ViewBag.StatusFilter as string ?? "all")
         : statusFilterQuery;
 }
-@model IEnumerable<env_analysis_project.Models.ApplicationUser>
+@model IEnumerable<env_analysis_project.Contracts.UserManagement.UserResponse>
 
 <form id="antiForgeryForm" method="post" style="display:none">
     @Html.AntiForgeryToken()
