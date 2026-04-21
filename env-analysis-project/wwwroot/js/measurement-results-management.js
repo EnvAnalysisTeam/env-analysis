@@ -702,6 +702,7 @@
         };
 
         const mergedSeries = mergeForecastSeries(Array.isArray(series) ? series : []);
+        const normalizedLabels = Array.isArray(labels) ? labels.map(label => `${label}`) : [];
         const dataSeries = mergedSeries.map((item, index) => {
             const isForecast = Boolean(item?.isForecast);
             const baseColor = isForecast ? '#f59e0b' : trendColorPalette[index % trendColorPalette.length];
@@ -709,7 +710,15 @@
             const labelCore = item.unit ? `${datasetLabelBase} (${item.unit})` : datasetLabelBase;
             const datasetLabel = isForecast ? `${labelCore} - Model` : labelCore;
             const points = Array.isArray(item.points) ? item.points : [];
-            const data = points.map(point => toNumericOrNull(point?.value));
+            const valueLookup = new Map();
+            points.forEach(point => {
+                const pointLabel = point?.label ? `${point.label}` : null;
+                if (!pointLabel) return;
+                valueLookup.set(pointLabel, toNumericOrNull(point?.value));
+            });
+            const data = normalizedLabels.length > 0
+                ? normalizedLabels.map(label => (valueLookup.has(label) ? valueLookup.get(label) : null))
+                : points.map(point => toNumericOrNull(point?.value));
             return { name: datasetLabel, data, color: baseColor, isForecast };
         }).filter(seriesItem => seriesItem.data.length > 0);
 
@@ -769,6 +778,8 @@
                 }
             },
             tooltip: {
+                shared: true,
+                intersect: false,
                 x: { format: 'dd MMM yyyy HH:mm' },
                 y: { formatter: (value) => formatNumericValue(value) }
             },
