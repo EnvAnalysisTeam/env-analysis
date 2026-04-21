@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Options;
 using Microsoft.ML;
 using Microsoft.ML.Transforms.TimeSeries;
 using System;
