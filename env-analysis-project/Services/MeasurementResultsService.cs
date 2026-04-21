@@ -1014,10 +1014,9 @@ namespace env_analysis_project.Services
             normalizedCodes = normalizedCodes.Distinct().ToList();
             var isMultiParameterRequest = normalizedCodes.Count > 1;
 
-            const int MaxMonths = 36;
             var now = DateTime.UtcNow;
             var defaultEnd = new DateTime(now.Year, now.Month, 1);
-            var defaultStart = defaultEnd.AddMonths(-11);
+            var defaultStart = defaultEnd.AddMonths(-23);
 
             DateTime? parsedStart = null;
             DateTime? parsedEnd = null;
@@ -1048,25 +1047,12 @@ namespace env_analysis_project.Services
                 return ServiceResult<NormalizedTrendQuery>.Fail("End month must be greater than or equal to start month.");
             }
 
-            var months = new List<DateTime>();
-            var cursor = rangeStart;
-            while (cursor <= rangeEnd && months.Count < MaxMonths)
-            {
-                months.Add(cursor);
-                cursor = cursor.AddMonths(1);
-            }
-
-            if (months.Count == 0)
-            {
-                months.Add(rangeStart);
-            }
-
             return ServiceResult<NormalizedTrendQuery>.Ok(new NormalizedTrendQuery
             {
                 NormalizedCodes = normalizedCodes,
                 IsMultiParameterRequest = isMultiParameterRequest,
-                EffectiveStart = months.First(),
-                EffectiveEndExclusive = months.Last().AddMonths(1),
+                EffectiveStart = rangeStart,
+                EffectiveEndExclusive = rangeEnd.AddMonths(1),
                 SourceId = query.SourceId
             });
         }

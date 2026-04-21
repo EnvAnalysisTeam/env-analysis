@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using env_analysis_project.Contracts.Parameters;
+using env_analysis_project.Models;
 using env_analysis_project.Services;
 using Microsoft.AspNetCore.Mvc;
 

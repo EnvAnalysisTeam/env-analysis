@@ -1,0 +1,1 @@
+builder.Services.AddHostedService<env_analysis_project.Services.PredictionTrainingHostedService>();

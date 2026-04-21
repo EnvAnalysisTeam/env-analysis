@@ -153,6 +153,11 @@
                             Signed in as
                             <div class="font-semibold text-gray-800 text-sm truncate">@currentUserName</div>
                         </div>
+                        <a asp-controller="Profile"
+                           asp-action="Index"
+                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-black border-b border-gray-100 font-semibold">
+                            My Profile
+                        </a>
                         <form method="post"
                               asp-area="Identity"
                               asp-page="/Account/Logout"

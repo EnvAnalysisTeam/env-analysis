@@ -19,6 +19,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<ThresholdOptions>(builder.Configuration.GetSection("PollutionThresholds"));
 builder.Services.Configure<ThresholdOptions>(builder.Configuration.GetSection("ThresholdOptions"));
 builder.Services.AddScoped<IPredictionService, PredictionService>();
+// Hosted service will create a scope and initialize the prediction service at startup
+builder.Services.AddHostedService<PredictionTrainingHostedService>();
 
 // ======================================
 // Đăng ký DbContext
@@ -41,6 +43,7 @@ builder.Services.AddScoped<IEmissionSourcesService, EmissionSourcesService>();
 builder.Services.AddScoped<ISourceTypesService, SourceTypesService>();
 builder.Services.AddScoped<IParametersService, ParametersService>();
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
+builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 
 // ======================================
 // Cấu hình Identity
@@ -93,7 +96,9 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 // Chạy Service để Huấn luyện mô hình ngay khi ứng dụng khởi động
-app.Services.GetRequiredService<IPredictionService>();
+// Avoid resolving a scoped service from the root provider. The hosted service
+// `PredictionTrainingHostedService` will create a scope and initialize the
+// `IPredictionService` safely.
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
