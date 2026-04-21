@@ -87,6 +87,12 @@ builder.Services.AddRazorPages(options =>
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<env_analysis_projectContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
 // ======================================
 // Cấu hình Middleware Pipeline
 // ======================================

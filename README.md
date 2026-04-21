@@ -34,6 +34,35 @@ ASP.NET Core 8 MVC + Identity project for managing environmental emission source
    dotnet run --project env-analysis-project/env-analysis-project.csproj
    ```
 
+### Docker Deployment
+1. Copy env file:
+   ```bash
+   cp .env.example .env
+   ```
+   On PowerShell:
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+2. (Optional) Update `.env` with your own `SA_PASSWORD` and `JWT_KEY`.
+3. Start the stack:
+   ```bash
+   docker compose up -d --build
+   ```
+4. Open app at `http://localhost:8080`.
+
+Notes:
+- SQL Server runs in container `env-analysis-db` on host port `14333`.
+- The web app runs in container `env-analysis-web`.
+- Migrations are applied automatically on app startup (`Database.MigrateAsync()` in `Program.cs`).
+- Stop stack:
+  ```bash
+  docker compose down
+  ```
+- Stop and remove DB data volume:
+  ```bash
+  docker compose down -v
+  ```
+
 ### Default admin account
 On startup the app runs a Bogus-powered seeder that ensures a ready-made administrator exists:
 - Email: `admin@gmail.com`
